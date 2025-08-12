@@ -1,0 +1,33 @@
+# Dockerfile for seagoat
+FROM python:3.11-slim
+
+# Install necessary dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ripgrep \
+    git \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+
+# Upgrade pip and install setuptools and wheel
+RUN pip install --upgrade pip setuptools wheel
+
+# Install seagoat
+RUN pip install seagoat
+
+RUN python - <<'PY'
+from chromadb.utils import embedding_functions
+ef = embedding_functions.DefaultEmbeddingFunction()  # all-MiniLM-L6-v2(ONNX)
+ef(["warmup"])  # 한 번 호출하면 onnx.tar.gz를 받아 캐시함
+PY
+
+# Set up a workspace
+WORKDIR /workspace
+
+# Copy the repository code into the container
+COPY . .
+
+# Keep the container running
+CMD ["/bin/bash", "-c", "seagoat-server start repo"]
