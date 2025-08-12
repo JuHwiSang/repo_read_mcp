@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import pygit2
+import time
 from repo_read_mcp.seagoat import Seagoat
 
 @pytest.fixture(scope="module")
@@ -31,8 +32,11 @@ def temp_repo():
     index.add_all()
     index.write()
     
-    author = pygit2.Signature("Test Author", "test@example.com")
-    committer = pygit2.Signature("Test Committer", "test@example.com")
+    now_utc = int(time.time())
+    
+    author = pygit2.Signature("Test Author", "test@example.com", now_utc - 86400, 0)
+    committer = pygit2.Signature("Test Committer", "test@example.com", now_utc - 86400, 0)
+
     tree = index.write_tree()
     repo.create_commit("HEAD", author, committer, "Initial commit", tree, [])
 

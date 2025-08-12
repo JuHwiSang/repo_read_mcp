@@ -5,6 +5,7 @@ import io
 import atexit
 import hashlib
 import re
+import time
 from typing import Dict, List, Union
 
 import docker.client
@@ -19,20 +20,23 @@ class Seagoat:
     image: Image | None
     container: Container | None
     tag: str
+    ANALYSIS_COMPLETE_MESSAGE = "Analyzed all chunks!"
 
-    def __init__(self, repo_path: str, dockerfile_base_path: str = "repo_read_mcp/templates/Dockerfile.seagoat.base") -> None:
+    def __init__(self, repo_path: str, dockerfile_base_path: str = "repo_read_mcp/templates/Dockerfile.seagoat.base", run_script_path: str = "repo_read_mcp/templates/run.base.sh") -> None:
         self.repo_path = repo_path
         self.dockerfile_base_path = dockerfile_base_path
+        self.run_script_path = run_script_path
         self.docker_client = docker.from_env()
         self.image = None
         self.container = None
-        
+
         build_context = self._create_build_context()
         self.tag = self._create_image_tag(build_context)
 
         self.image = self._get_or_build_image(build_context)
 
         self._run_container()
+        self._wait_for_analysis_completion()
 
         atexit.register(self.cleanup)
 
@@ -44,18 +48,23 @@ class Seagoat:
         build_context.seek(0)  # Reset buffer for build
         return f"repo_read_mcp/test:{context_hash[:16]}"
 
-    def _read_dockerfile_template(self, path: str) -> bytes:
-        with open(path, 'rb') as f:
-            return f.read()
-
     def _create_build_context(self) -> io.BytesIO:
-        dockerfile_content = self._read_dockerfile_template(self.dockerfile_base_path)
+        with open(self.dockerfile_base_path, 'rb') as f:
+            dockerfile_content = f.read()
+        with open(self.run_script_path, 'rb') as f:
+            run_script_content = f.read()
+
         tar_buffer = io.BytesIO()
         with tarfile.open(fileobj=tar_buffer, mode='w') as tar:
             # Add Dockerfile
             df_info = tarfile.TarInfo(name='Dockerfile')
             df_info.size = len(dockerfile_content)
             tar.addfile(df_info, io.BytesIO(dockerfile_content))
+
+            # Add run script
+            rs_info = tarfile.TarInfo(name='run.sh')
+            rs_info.size = len(run_script_content)
+            tar.addfile(rs_info, io.BytesIO(run_script_content))
             
             # Add repo content
             tar.add(self.repo_path, arcname='repo')
@@ -103,10 +112,43 @@ class Seagoat:
             self.container = self.docker_client.containers.run(
                 self.tag,
                 detach=True,
+                remove=False,
             )
         except errors.ContainerError as e:
             print(f"Failed to run container: {e}")
             raise
+
+    def _wait_for_analysis_completion(self, timeout: int = 300, poll_interval: float = 1.0) -> None:
+        if not self.container:
+            raise Exception("Container is not running.")
+
+        print("Waiting for analysis to complete...")
+        start_time = time.time()
+
+        # Wait for the analysis to complete by polling logs
+        last_log_output = ""
+        while time.time() - start_time < timeout:
+            self.container.reload()
+            if self.container.status != 'running':
+                logs = self.container.logs().decode('utf-8')
+                print(f"Container stopped unexpectedly. Logs:\n{logs}")
+                raise Exception("Container stopped unexpectedly during analysis.")
+
+            all_logs = self.container.logs().decode('utf-8')
+            new_logs = all_logs[len(last_log_output):]
+
+            if new_logs:
+                print(new_logs, end='')
+                last_log_output = all_logs
+
+            if self.ANALYSIS_COMPLETE_MESSAGE in all_logs:
+                print("\nAnalysis complete.")
+                return
+
+            time.sleep(poll_interval)
+
+        # If loop finishes, it's a timeout
+        raise TimeoutError("Timeout waiting for container to analyze repository.")
 
     def search(self, query: str) -> List[Dict[str, Union[str, int]]]:
         if not self.container:
@@ -182,7 +224,7 @@ class Seagoat:
             print(f"Stopping and removing container {self.container.id[:12] if self.container.id else self.container.name}...")
             try:
                 self.container.stop()
-                self.container.remove()
+                # self.container.remove()
             except errors.NotFound:
                 pass # Already gone
         # The image is intentionally not removed to allow caching across runs.

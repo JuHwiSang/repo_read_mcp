@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ripgrep \
     git \
+    dos2unix \
  && rm -rf /var/lib/apt/lists/*
 
 RUN python -m venv /venv
@@ -28,6 +29,11 @@ WORKDIR /workspace
 
 # Copy the repository code into the container
 COPY . .
+RUN dos2unix run.sh
+RUN chmod +x run.sh
+RUN sh run.sh
+
+WORKDIR /workspace/repo
 
 # Keep the container running
-CMD ["/bin/bash", "-c", "seagoat-server start repo"]
+CMD ["/bin/bash", "-c", "seagoat-server start ."]
