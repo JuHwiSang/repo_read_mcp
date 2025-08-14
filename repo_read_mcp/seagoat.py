@@ -164,58 +164,44 @@ class Seagoat:
         return self._parse_search_results(exec_result.output.decode('utf-8'))
 
     def _parse_search_results(self, output: str) -> List[Dict[str, Union[str, int]]]:
-        # debug
-        print('output', output)
-        return []
-        
-        
         results: List[Dict[str, Union[str, int]]] = []
-        
-        # Regex to capture score, file path, line numbers, and the first line of code
-        # The output format seems to be: score, path:start-end, code
-        # The code can span multiple lines.
-        
-        # Split output into blocks for each result
-        # A new result block starts with a line that has a similarity score.
-        result_blocks = []
-        current_block = ""
+        current_chunk: Dict[str, Union[str, int]] | None = None
+
         for line in output.strip().split('\n'):
-            # A new result starts with something like "0.42     ..."
-            if re.match(r'^\d+\.\d+\s+', line):
-                if current_block:
-                    result_blocks.append(current_block)
-                current_block = line + '\n'
+            if not line:
+                continue
+
+            parts = line.split(':', 2)
+            if len(parts) < 3:
+                continue
+
+            file_path, line_num_str, code = parts
+            try:
+                line_num = int(line_num_str)
+            except ValueError:
+                continue
+
+            if (current_chunk and
+                    current_chunk['file'] == file_path and
+                    isinstance(current_chunk['end_line'], int) and
+                    current_chunk['end_line'] + 1 == line_num):
+                # This line is a continuation of the current chunk
+                current_chunk['end_line'] = line_num
+                current_chunk['code'] = str(current_chunk['code']) + '\n' + code
             else:
-                current_block += line + '\n'
-        if current_block:
-            result_blocks.append(current_block)
+                # This line starts a new chunk
+                if current_chunk:
+                    results.append(current_chunk)
+                
+                current_chunk = {
+                    'file': file_path,
+                    'start_line': line_num,
+                    'end_line': line_num,
+                    'code': code,
+                }
 
-        for block in result_blocks:
-            lines = block.strip().split('\n')
-            first_line = lines[0]
-            
-            match = re.match(r'^(?P<score>\d+\.\d+)\s+(?P<file>.+?):(?P<start_line>\d+)-(?P<end_line>\d+)\s+(?P<code>.*)', first_line)
-            
-            if not match:
-                # sometimes the code part is on the next line
-                 match = re.match(r'^(?P<score>\d+\.\d+)\s+(?P<file>.+?):(?P<start_line>\d+)-(?P<end_line>\d+)', first_line)
-                 if match:
-                    code = '\n'.join(lines[1:])
-                 else:
-                    continue
-            else:
-                code = match.group('code')
-                if len(lines) > 1:
-                    code += '\n' + '\n'.join(l.lstrip() for l in lines[1:])
-
-
-            if match:
-                results.append({
-                    'file': match.group('file').strip(),
-                    'start_line': int(match.group('start_line')),
-                    'end_line': int(match.group('end_line')),
-                    'code': code.strip()
-                })
+        if current_chunk:
+            results.append(current_chunk)
 
         return results
 

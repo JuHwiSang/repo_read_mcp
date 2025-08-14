@@ -12,6 +12,7 @@ authors = [{ name = "JuHwiSang", email = "juhs2005@gmail.com" }]
 dependencies = [
     "docker>=7.1.0",
     "fastmcp>=2.11.2",
+    "pydantic>=2.11.7",
 ]
 
 [tool.setuptools.packages.find]
@@ -21,4 +22,5 @@ where = ["repo_read_mcp"]
 tests = [
     "pytest>=8.4.1",
     "pygit2>=1.18.1",
+    "pytest-asyncio>=1.1.0",
 ]

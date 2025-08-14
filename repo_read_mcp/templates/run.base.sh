@@ -4,7 +4,7 @@ pid=$!
 
 # 최대 5분 대기하며 완료 문구 감시
 timeout 300 bash -c '
-  until grep -q "Analyzed all chunks!" /tmp/seagoat.log; do cat /tmp/seagoat.log; sleep 1; done
+  until grep -q "Analyzed all chunks!" /tmp/seagoat.log; do sleep 1; done
 '
 
 # 깔끔하게 종료
