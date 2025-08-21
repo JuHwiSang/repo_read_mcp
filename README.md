@@ -71,13 +71,19 @@ python -m scripts.mcp_server /path/to/your/repository
 
 ### Preparing the `Seagoat` Image in Advance
 
-The semantic search feature uses `Seagoat` internally, which requires a Docker image. This image includes embedding models and can take time to build. By calling `Seagoat.prepare()` in advance, you can pre-build the image to avoid long delays on the first use of the search feature. This step is optional; if not performed, the image will be built automatically on the first use.
+The semantic search feature uses `Seagoat` internally, which requires a Docker image. This image includes embedding models and can take time to build. By creating a `Seagoat` instance and calling its `.prepare()` method in advance, you can pre-build the image to avoid long delays on the first use of the search feature. This step is optional; if not performed, the image will be built automatically on the first use.
 
 You can import and use the `Seagoat` class directly.
 
 ```python
 from repo_read_mcp.seagoat import Seagoat
 
-# Build the Docker image required for seagoat.
-Seagoat.prepare()
+# Path to the repository you want to analyze
+repo_path = "/path/to/your/repository"
+
+# Create a Seagoat instance for your repository
+seagoat = Seagoat(repo_path=repo_path)
+
+# Build the Docker image required for seagoat. This will be cached for future runs.
+seagoat.prepare()
 ```
