@@ -11,6 +11,7 @@ from typing import Dict, List, Union
 import docker.client
 from docker.models.containers import Container
 from docker.models.images import Image
+import os
 
 
 class Seagoat:
@@ -21,6 +22,7 @@ class Seagoat:
     container: Container | None
     tag: str
     ANALYSIS_COMPLETE_MESSAGE = "Analyzed all chunks!"
+    BASE_IMAGE_TAG = "seagoat-base:latest"
 
     def __init__(self, repo_path: str, dockerfile_base_path: str = "repo_read_mcp/templates/Dockerfile.seagoat.base", run_script_path: str = "repo_read_mcp/templates/run.base.sh") -> None:
         self.repo_path = repo_path
@@ -29,16 +31,29 @@ class Seagoat:
         self.docker_client = docker.from_env()
         self.image = None
         self.container = None
-
-        build_context = self._create_build_context()
-        self.tag = self._create_image_tag(build_context)
-
-        self.image = self._get_or_build_image(build_context)
-
-        self._run_container()
-        self._wait_for_analysis_completion()
+        self.tag = ""
 
         atexit.register(self.cleanup)
+
+    def prepare(self) -> None:
+        """
+        Builds the Docker image for the repository.
+        """
+        if self.image:
+            return
+        
+        build_context = self._create_build_context()
+        self.tag = self._create_image_tag(build_context)
+        self.image = self._get_or_build_image(build_context)
+
+    def run(self) -> None:
+        """
+        Builds the Docker image for the repository and runs the analysis container.
+        This method must be called before performing any searches.
+        """
+        self.prepare()
+        self._run_container()
+        self._wait_for_analysis_completion()
 
     def _create_image_tag(self, build_context: io.BytesIO) -> str:
         build_context.seek(0)
@@ -46,7 +61,7 @@ class Seagoat:
         hasher.update(build_context.read())
         context_hash = hasher.hexdigest()
         build_context.seek(0)  # Reset buffer for build
-        return f"repo_read_mcp/test:{context_hash[:16]}"
+        return f"repo_read_mcp/seagoat:{context_hash[:16]}"
 
     def _create_build_context(self) -> io.BytesIO:
         with open(self.dockerfile_base_path, 'rb') as f:
@@ -71,7 +86,7 @@ class Seagoat:
             
         tar_buffer.seek(0)
         return tar_buffer
-
+    
     def _get_or_build_image(self, build_context: io.BytesIO) -> Image:
         """Gets an image from cache or builds a new one."""
         try:
@@ -152,7 +167,7 @@ class Seagoat:
 
     def search(self, query: str) -> List[Dict[str, Union[str, int]]]:
         if not self.container:
-            raise Exception("Container is not running.")
+            raise Exception("Container is not running. Please call the .run() method on the Seagoat instance before searching.")
 
         exec_result = self.container.exec_run(["seagoat", query])
         

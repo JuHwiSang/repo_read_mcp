@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ripgrep \
     git \
     dos2unix \
+    curl \
  && rm -rf /var/lib/apt/lists/*
 
 RUN python -m venv /venv
@@ -18,20 +19,26 @@ RUN pip install --upgrade pip setuptools wheel
 # Install seagoat
 RUN pip install seagoat
 
-RUN python - <<'PY'
-from chromadb.utils import embedding_functions
-ef = embedding_functions.DefaultEmbeddingFunction()  # all-MiniLM-L6-v2(ONNX)
-ef(["warmup"])  # 한 번 호출하면 onnx.tar.gz를 받아 캐시함
-PY
+# RUN python - <<'PY'
+# from chromadb.utils import embedding_functions
+# ef = embedding_functions.DefaultEmbeddingFunction()  # all-MiniLM-L6-v2(ONNX)
+# ef(["warmup"])  # 한 번 호출하면 onnx.tar.gz를 받아 캐시함
+# PY
+
+RUN mkdir -p /root/.cache/chroma/onnx_models/all-MiniLM-L6-v2 && \
+    curl -L -o /root/.cache/chroma/onnx_models/all-MiniLM-L6-v2/onnx.tar.gz \
+         "https://chroma-onnx-models.s3.amazonaws.com/all-MiniLM-L6-v2/onnx.tar.gz" && \
+    tar -xzf /root/.cache/chroma/onnx_models/all-MiniLM-L6-v2/onnx.tar.gz \
+        -C /root/.cache/chroma/onnx_models/all-MiniLM-L6-v2
 
 # Set up a workspace
 WORKDIR /workspace
 
 # Copy the repository code into the container
 COPY . .
-RUN dos2unix run.sh
-RUN chmod +x run.sh
-RUN sh run.sh
+# RUN dos2unix run.sh
+# RUN chmod +x run.sh
+# RUN sh run.sh
 
 WORKDIR /workspace/repo
 

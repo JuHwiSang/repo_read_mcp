@@ -1,12 +1,9 @@
 import pytest
-import os
 import shutil
 import tempfile
-import time
-import stat
-import gc
 
-import pygit2
+import docker
+import docker.errors
 
 from repo_read_mcp.seagoat import Seagoat
 
@@ -29,9 +26,33 @@ def temp_repo():
 @pytest.fixture(scope="module")
 def searcher(temp_repo):
     """Initializes the Seagoat class once per module."""
-    return Seagoat(repo_path=temp_repo)
+    s = Seagoat(repo_path=temp_repo)
+    s.run()
+    return s
 
-def test_search_function_definition(searcher):
+async def test_prepare_builds_image_without_running(temp_repo):
+    """Test that prepare() builds an image but does not run a container."""
+    seagoat = Seagoat(repo_path=temp_repo)
+    
+    # Before prepare, image and container should be None
+    assert seagoat.image is None
+    assert seagoat.container is None
+    
+    seagoat.prepare()
+    
+    # After prepare, image should exist, but container should not
+    assert seagoat.image is not None
+    assert seagoat.tag, "Tag should be set after prepare"
+    assert seagoat.container is None
+    
+    # Verify with the docker client that the image exists
+    try:
+        seagoat.docker_client.images.get(seagoat.tag)
+    except docker.errors.ImageNotFound:
+        pytest.fail(f"Image with tag {seagoat.tag} was not found after prepare()")
+
+
+async def test_search_function_definition(searcher):
     """Test searching for a function definition."""
     query = "a function that greets"
     results = searcher.search(query)
@@ -50,7 +71,7 @@ def test_search_function_definition(searcher):
 
     assert found_expected_file, "Did not find the expected function in search results."
 
-def test_search_docstring(searcher):
+async def test_search_docstring(searcher):
     """Test searching based on a docstring."""
     query = "sample function to say hi"
     results = searcher.search(query)

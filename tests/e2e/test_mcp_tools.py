@@ -74,15 +74,21 @@ async def test_read_file_lines(mcp_server):
 
 
 
-async def test_read_dir(mcp_server):
+async def test_read_dirs(mcp_server):
     async with Client(mcp_server) as client:
-        resp = await client.call_tool("read_dir", {"dir_path": ""})
+        resp = await client.call_tool("read_dirs", {"dir_paths": [""]})
 
-    # DirEntriesOutput -> dict with "dir_path" and "entries" keys
+    # ReadDirsOutput -> dict with "dirs" key containing list[DirEntriesOutput]
     assert isinstance(resp.structured_content, dict), "Expected response to be a dict"
-    assert resp.structured_content.get("dir_path") == ""
+    assert "dirs" in resp.structured_content, "Response missing 'dirs' key"
 
-    entries = resp.structured_content.get("entries", [])
+    dirs_list = resp.structured_content.get("dirs", [])
+    assert dirs_list, "Expected at least one directory listing"
+
+    root_listing = dirs_list[0]
+    assert root_listing.get("dir_path") == ""
+
+    entries = root_listing.get("entries", [])
     assert "sample.py" in entries
     assert "another.py" in entries
 
@@ -103,3 +109,50 @@ async def test_tree_dir(mcp_server):
     # Verify that our files appear somewhere in the tree listing
     assert any(p.endswith("sample.py") for p in tree)
     assert any(p.endswith("another.py") for p in tree)
+
+
+# ---------------------------------------------------------------------------
+# Search tool – natural-language + regex
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "query,expected_file",
+    [
+        # Natural-language style queries
+        ("a function that greets", "another.py"),
+        ("sample function to say hi", "sample.py"),
+        ("a class that has a greet method", "another.py"),
+        # Regex-style queries (Seagoat delegates to ripgrep when it detects
+        # regex-like patterns)
+        (r"hello_world", "sample.py"),
+        (r"class\\s+Greeter", "another.py"),
+        # Mixed natural language and regex
+        (r"function hello_.* that prints", "sample.py"),
+        (r"class G.*r with a method that returns a string", "another.py"),
+    ],
+)
+async def test_search_tool(query, expected_file, mcp_server):
+    """Ensure the ``search`` MCP tool returns structured results for both natural-language and regex queries."""
+
+    async with Client(mcp_server) as client:
+        resp = await client.call_tool("search", {"query": query})
+
+    assert isinstance(resp.structured_content, dict), "Expected dict payload"
+
+    # Response should contain a list of results.
+    results = resp.structured_content.get("results", [])
+    assert results, f"No results returned for query: {query}"
+
+    # At least one result should reference the expected file.
+    assert any(r["file"].endswith(expected_file) for r in results), (
+        f"Expected file '{expected_file}' not found in search results for '{query}'"
+    )
+
+    # Basic schema checks on the first result.
+    first = results[0]
+    for key in ("file", "start_line", "end_line", "code"):
+        assert key in first, f"Missing key '{key}' in result"
+    assert isinstance(first["start_line"], int) and first["start_line"] >= 1
+    assert isinstance(first["end_line"], int) and first["end_line"] >= first["start_line"]
+
