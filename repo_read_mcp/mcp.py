@@ -6,7 +6,7 @@ from fastmcp import FastMCP, Context
 # Safely join paths within the project root.
 from .lib.utils import safe_path_join
 from .seagoat import Seagoat
-from .lib.mcp_progress_keepalive import ProgressKeepAlive
+from .lib.fastmcp_progress_keepalive import ProgressKeepAlive
 from .models import (
     FileChunk,
     ReadFilesOutput,
