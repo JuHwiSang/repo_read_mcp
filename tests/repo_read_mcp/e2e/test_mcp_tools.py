@@ -10,7 +10,7 @@ from repo_read_mcp.mcp import make_mcp_server
 from fastmcp import Client
 
 # Shared test helpers
-from tests.helpers import create_git_repo, remove_readonly
+from tests.repo_read_mcp.helpers import create_git_repo, remove_readonly
 
 pytestmark = pytest.mark.asyncio
 

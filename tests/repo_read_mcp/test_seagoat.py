@@ -8,7 +8,7 @@ import docker.errors
 from repo_read_mcp.seagoat import Seagoat
 
 # Shared test helpers
-from tests.helpers import create_git_repo, remove_readonly
+from tests.repo_read_mcp.helpers import create_git_repo, remove_readonly
 
 pytestmark = pytest.mark.asyncio
 

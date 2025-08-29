@@ -24,7 +24,7 @@ class Seagoat:
     ANALYSIS_COMPLETE_MESSAGE = "Analyzed all chunks!"
     BASE_IMAGE_TAG = "seagoat-base:latest"
 
-    def __init__(self, repo_path: str, dockerfile_base_path: str = "repo_read_mcp/templates/Dockerfile.seagoat.base", run_script_path: str = "repo_read_mcp/templates/run.base.sh") -> None:
+    def __init__(self, repo_path: str, dockerfile_base_path: str = "src/repo_read_mcp/templates/Dockerfile.seagoat.base", run_script_path: str = "src/repo_read_mcp/templates/run.base.sh") -> None:
         self.repo_path = repo_path
         self.dockerfile_base_path = dockerfile_base_path
         self.run_script_path = run_script_path
