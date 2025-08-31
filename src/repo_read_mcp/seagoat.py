@@ -8,6 +8,8 @@ import re
 import time
 from typing import Dict, List, Union
 
+from repo_read_mcp.config import get_dockerfile_template, get_run_script_template
+
 import docker.client
 from docker.models.containers import Container
 from docker.models.images import Image
@@ -16,7 +18,6 @@ import os
 
 class Seagoat:
     repo_path: str
-    dockerfile_base_path: str
     docker_client: docker.client.DockerClient
     image: Image | None
     container: Container | None
@@ -24,10 +25,8 @@ class Seagoat:
     ANALYSIS_COMPLETE_MESSAGE = "Analyzed all chunks!"
     BASE_IMAGE_TAG = "seagoat-base:latest"
 
-    def __init__(self, repo_path: str, dockerfile_base_path: str = "src/repo_read_mcp/templates/Dockerfile.seagoat.base", run_script_path: str = "src/repo_read_mcp/templates/run.base.sh") -> None:
+    def __init__(self, repo_path: str) -> None:
         self.repo_path = repo_path
-        self.dockerfile_base_path = dockerfile_base_path
-        self.run_script_path = run_script_path
         self.docker_client = docker.from_env()
         self.image = None
         self.container = None
@@ -64,10 +63,8 @@ class Seagoat:
         return f"repo_read_mcp/seagoat:{context_hash[:16]}"
 
     def _create_build_context(self) -> io.BytesIO:
-        with open(self.dockerfile_base_path, 'rb') as f:
-            dockerfile_content = f.read()
-        with open(self.run_script_path, 'rb') as f:
-            run_script_content = f.read()
+        dockerfile_content = get_dockerfile_template()
+        run_script_content = get_run_script_template()
 
         tar_buffer = io.BytesIO()
         with tarfile.open(fileobj=tar_buffer, mode='w') as tar:
@@ -79,6 +76,8 @@ class Seagoat:
             # Add run script
             rs_info = tarfile.TarInfo(name='run.sh')
             rs_info.size = len(run_script_content)
+            # Ensure the run script is executable inside the image context
+            rs_info.mode = 0o755
             tar.addfile(rs_info, io.BytesIO(run_script_content))
             
             # Add repo content

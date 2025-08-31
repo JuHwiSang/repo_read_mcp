@@ -18,6 +18,11 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+repo_read_mcp = [
+    "templates/*",
+]
+
 [project.optional-dependencies]
 tests = [
     "pytest>=8.4.1",
