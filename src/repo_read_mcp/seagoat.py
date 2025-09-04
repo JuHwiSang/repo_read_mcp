@@ -22,15 +22,17 @@ class Seagoat:
     image: Image | None
     container: Container | None
     tag: str
+    auto_remove: bool
     ANALYSIS_COMPLETE_MESSAGE = "Analyzed all chunks!"
     BASE_IMAGE_TAG = "seagoat-base:latest"
 
-    def __init__(self, repo_path: str) -> None:
+    def __init__(self, repo_path: str, auto_remove: bool = True) -> None:
         self.repo_path = repo_path
         self.docker_client = docker.from_env()
         self.image = None
         self.container = None
         self.tag = ""
+        self.auto_remove = auto_remove
 
         atexit.register(self.cleanup)
 
@@ -126,7 +128,7 @@ class Seagoat:
             self.container = self.docker_client.containers.run(
                 self.tag,
                 detach=True,
-                remove=False,
+                remove=self.auto_remove,
             )
         except errors.ContainerError as e:
             print(f"Failed to run container: {e}")
