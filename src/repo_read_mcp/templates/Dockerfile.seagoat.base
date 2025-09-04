@@ -36,8 +36,8 @@ WORKDIR /workspace
 
 # Copy the repository code into the container
 COPY . .
-# RUN dos2unix run.sh
-# RUN chmod +x run.sh
+RUN dos2unix run.sh
+RUN chmod +x run.sh
 
 WORKDIR /workspace/repo
 RUN sh ../run.sh
