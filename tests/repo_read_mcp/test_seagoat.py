@@ -89,3 +89,9 @@ async def test_search_docstring(searcher):
              break
     
     assert found_expected_file, "Did not find the expected docstring in search results."
+
+
+async def test_no_queue_tasks_after_warmup(searcher):
+    """After image warm-up, runtime logs should not show queueing/embedding tasks."""
+    logs = searcher.container.logs().decode("utf-8", errors="ignore").lower()
+    assert "tasks left in the queue" not in logs

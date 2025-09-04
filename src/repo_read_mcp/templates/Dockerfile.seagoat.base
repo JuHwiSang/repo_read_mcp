@@ -38,9 +38,9 @@ WORKDIR /workspace
 COPY . .
 # RUN dos2unix run.sh
 # RUN chmod +x run.sh
-# RUN sh run.sh
 
 WORKDIR /workspace/repo
+RUN sh ../run.sh
 
 # Keep the container running
 CMD ["/bin/bash", "-c", "seagoat-server start ."]
